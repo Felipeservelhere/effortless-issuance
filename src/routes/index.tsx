@@ -389,8 +389,7 @@ function Index() {
       >
         {editando && (
           <DialogContent
-            className="flex max-h-[90vh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0"
-            showCloseButton={false}
+            className="flex max-h-[90vh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 [&>button]:hidden"
           >
             <DialogTitle className="sr-only">
               Dados fiscais de {editando.nome}
@@ -451,7 +450,7 @@ function Index() {
               )}
 
               <Tabs defaultValue="fiscais" className="mt-4">
-                <TabsList variant="line" className="w-full justify-start gap-4">
+                <TabsList className="w-full justify-start gap-4 rounded-none border-b bg-transparent p-0">
                   <TabsTrigger value="fiscais">Dados fiscais</TabsTrigger>
                   <TabsTrigger value="icms">ICMS</TabsTrigger>
                   <TabsTrigger value="pis">PIS</TabsTrigger>
@@ -605,7 +604,7 @@ function DadosFiscaisForm({
           <label className="mb-1.5 block text-sm font-medium">
             Origem da mercadoria <span className="text-destructive">*</span>
           </label>
-          <Select defaultValue={ORIGEM_OPTIONS[0]}>
+          <Select defaultValue="0 — Nacional">
             <SelectTrigger className="h-auto py-2">
               <SelectValue />
             </SelectTrigger>
