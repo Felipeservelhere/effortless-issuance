@@ -68,6 +68,19 @@ type Item = {
   valor: number;
 };
 
+const NCM_SUGESTOES = [
+  { code: "2106.90.90", label: "Outras preparações alimentícias" },
+  { code: "1905.90.90", label: "Outros produtos de padaria" },
+  { code: "2202.10.00", label: "Águas com açúcar ou aromatizadas" },
+  { code: "0402.21.10", label: "Leite em pó integral" },
+];
+
+const ORIGEM_OPTIONS = [
+  "0 — Nacional",
+  "1 — Estrangeira (importação direta)",
+  "2 — Estrangeira (mercado interno)",
+];
+
 const brl = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -89,6 +102,15 @@ function Index() {
 
   const update = (id: number, patch: Partial<Item>) =>
     setItens((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+
+  const [editandoId, setEditandoId] = useState<number | null>(null);
+  const editandoIndex = itens.findIndex((i) => i.id === editandoId);
+  const editando = editandoIndex >= 0 ? itens[editandoIndex] : null;
+
+  const navegar = (delta: number) => {
+    const prox = itens[editandoIndex + delta];
+    if (prox) setEditandoId(prox.id);
+  };
 
   const total = useMemo(
     () => itens.reduce((acc, i) => acc + i.qtd * i.valor, 0),
