@@ -1,7 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { AlertTriangle, FileText, Plus, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  Plus,
+  Search,
+  SlidersHorizontal,
+  Trash2,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -10,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -51,6 +68,19 @@ type Item = {
   valor: number;
 };
 
+const NCM_SUGESTOES = [
+  { code: "2106.90.90", label: "Outras preparações alimentícias" },
+  { code: "1905.90.90", label: "Outros produtos de padaria" },
+  { code: "2202.10.00", label: "Águas com açúcar ou aromatizadas" },
+  { code: "0402.21.10", label: "Leite em pó integral" },
+];
+
+const ORIGEM_OPTIONS = [
+  "0 — Nacional",
+  "1 — Estrangeira (importação direta)",
+  "2 — Estrangeira (mercado interno)",
+];
+
 const brl = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -72,6 +102,15 @@ function Index() {
 
   const update = (id: number, patch: Partial<Item>) =>
     setItens((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+
+  const [editandoId, setEditandoId] = useState<number | null>(null);
+  const editandoIndex = itens.findIndex((i) => i.id === editandoId);
+  const editando = editandoIndex >= 0 ? itens[editandoIndex] : null;
+
+  const navegar = (delta: number) => {
+    const prox = itens[editandoIndex + delta];
+    if (prox) setEditandoId(prox.id);
+  };
 
   const total = useMemo(
     () => itens.reduce((acc, i) => acc + i.qtd * i.valor, 0),
@@ -229,8 +268,8 @@ function Index() {
                             <Button
                               variant="outline"
                               size="icon"
-                              aria-label="Ajustar impostos"
-                              onClick={() => toast.info("Ajuste de impostos do item")}
+                              aria-label="Dados fiscais do produto"
+                              onClick={() => setEditandoId(item.id)}
                             >
                               <SlidersHorizontal className="size-4" />
                             </Button>
@@ -342,6 +381,273 @@ function Index() {
           </div>
         </footer>
       </div>
+
+      {/* Modal de dados fiscais do produto */}
+      <Dialog
+        open={editando !== null}
+        onOpenChange={(open) => !open && setEditandoId(null)}
+      >
+        {editando && (
+          <DialogContent
+            className="flex max-h-[90vh] w-[calc(100vw-2rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0 [&>button]:hidden"
+          >
+            <DialogTitle className="sr-only">
+              Dados fiscais de {editando.nome}
+            </DialogTitle>
+
+            {/* Cabeçalho do modal */}
+            <div className="flex items-start justify-between gap-4 border-b px-6 pt-5 pb-4">
+              <div className="flex gap-3">
+                <span className="flex size-11 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+                  <SlidersHorizontal className="size-5" />
+                </span>
+                <div>
+                  <h3 className="text-xl font-bold tracking-tight">
+                    Dados fiscais do produto
+                  </h3>
+                  <p className="text-sm text-muted-foreground">{editando.nome}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="mr-1 text-sm text-muted-foreground">
+                  Item {editandoIndex + 1} de {itens.length}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label="Produto anterior"
+                  disabled={editandoIndex <= 0}
+                  onClick={() => navegar(-1)}
+                >
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  aria-label="Próximo produto"
+                  disabled={editandoIndex >= itens.length - 1}
+                  onClick={() => navegar(1)}
+                >
+                  <ChevronRight className="size-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Fechar"
+                  onClick={() => setEditandoId(null)}
+                >
+                  <X className="size-5" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 pb-6">
+              {editando.ncm.trim().length < 8 && (
+                <div className="mt-4 flex items-center gap-2 rounded-lg border border-destructive/30 bg-danger-soft px-4 py-3 text-sm font-medium text-destructive">
+                  <AlertTriangle className="size-4 shrink-0" />
+                  Preencha o NCM para emitir esta NF-e.
+                </div>
+              )}
+
+              <Tabs defaultValue="fiscais" className="mt-4">
+                <TabsList className="w-full justify-start gap-4 rounded-none border-b bg-transparent p-0">
+                  <TabsTrigger value="fiscais">Dados fiscais</TabsTrigger>
+                  <TabsTrigger value="icms">ICMS</TabsTrigger>
+                  <TabsTrigger value="pis">PIS</TabsTrigger>
+                  <TabsTrigger value="cofins">COFINS</TabsTrigger>
+                  <TabsTrigger value="ipi">IPI</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="fiscais" className="mt-5 space-y-4">
+                  <DadosFiscaisForm
+                    item={editando}
+                    onChange={(patch) => update(editando.id, patch)}
+                  />
+                </TabsContent>
+                {(["icms", "pis", "cofins", "ipi"] as const).map((tab) => (
+                  <TabsContent key={tab} value={tab} className="mt-5">
+                    <p className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+                      As alíquotas de {tab.toUpperCase()} são calculadas
+                      automaticamente a partir do NCM e do CFOP informados.
+                    </p>
+                  </TabsContent>
+                ))}
+              </Tabs>
+            </div>
+
+            {/* Rodapé do modal */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t px-6 py-4">
+              <button
+                type="button"
+                className="text-sm font-medium text-primary hover:underline"
+                onClick={() =>
+                  update(editando.id, { ncm: "", cfop: "6102" })
+                }
+              >
+                Restaurar padrão
+              </button>
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={() => setEditandoId(null)}>
+                  Cancelar <kbd className="ml-2 rounded bg-muted px-2 py-0.5 text-xs">Esc</kbd>
+                </Button>
+                <Button
+                  onClick={() => {
+                    setEditandoId(null);
+                    toast.success("Dados fiscais aplicados ao produto");
+                  }}
+                >
+                  Aplicar alterações
+                  <kbd className="ml-2 rounded bg-black/15 px-2 py-0.5 text-xs">Enter</kbd>
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        )}
+      </Dialog>
     </main>
+  );
+}
+
+function DadosFiscaisForm({
+  item,
+  onChange,
+}: {
+  item: Item;
+  onChange: (patch: Partial<Item>) => void;
+}) {
+  const [buscaNcm, setBuscaNcm] = useState("");
+  const [aberto, setAberto] = useState(false);
+  const [salvarCadastro, setSalvarCadastro] = useState(true);
+
+  useEffect(() => {
+    setBuscaNcm(item.ncm);
+  }, [item.id, item.ncm]);
+
+  const sugestoes = NCM_SUGESTOES.filter(
+    (s) =>
+      buscaNcm.trim() === "" ||
+      s.code.includes(buscaNcm.replace(/\D/g, "")) ||
+      s.label.toLowerCase().includes(buscaNcm.toLowerCase()),
+  );
+
+  const selecionar = (code: string) => {
+    const digits = code.replace(/\D/g, "");
+    setBuscaNcm(code);
+    onChange({ ncm: digits });
+    setAberto(false);
+  };
+
+  const invalido = item.ncm.trim().length < 8;
+
+  return (
+    <>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {/* NCM com busca */}
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">
+            NCM <span className="text-destructive">*</span>
+          </label>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={buscaNcm}
+              onChange={(e) => {
+                setBuscaNcm(e.target.value);
+                setAberto(true);
+                onChange({ ncm: e.target.value.replace(/\D/g, "").slice(0, 8) });
+              }}
+              onFocus={() => setAberto(true)}
+              onBlur={() => setTimeout(() => setAberto(false), 150)}
+              placeholder="Digite o código ou descrição do NCM"
+              aria-invalid={invalido}
+              className={invalido ? "pl-9 border-destructive" : "pl-9"}
+            />
+            {aberto && sugestoes.length > 0 && (
+              <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border bg-popover shadow-lg">
+                {sugestoes.map((s) => (
+                  <button
+                    key={s.code}
+                    type="button"
+                    onMouseDown={() => selecionar(s.code)}
+                    className="block w-full px-4 py-2.5 text-left hover:bg-accent"
+                  >
+                    <p className="font-semibold">{s.code}</p>
+                    <p className="text-sm text-muted-foreground">{s.label}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* CFOP */}
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">
+            CFOP <span className="text-destructive">*</span>
+          </label>
+          <Select value={item.cfop} onValueChange={(cfop) => onChange({ cfop })}>
+            <SelectTrigger className="h-auto py-2 text-left">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CFOP_OPTIONS.map((o) => (
+                <SelectItem key={o.code} value={o.code}>
+                  {o.code} — {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Origem */}
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">
+            Origem da mercadoria <span className="text-destructive">*</span>
+          </label>
+          <Select defaultValue="0 — Nacional">
+            <SelectTrigger className="h-auto py-2">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ORIGEM_OPTIONS.map((o) => (
+                <SelectItem key={o} value={o}>
+                  {o}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Unidade tributável */}
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">
+            Unidade tributável
+          </label>
+          <Input defaultValue="UN" />
+        </div>
+
+        {/* CEST */}
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">CEST</label>
+          <Input placeholder="Opcional" />
+        </div>
+
+        {/* Benefício fiscal */}
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">
+            Código de benefício fiscal
+          </label>
+          <Input placeholder="Opcional" />
+        </div>
+      </div>
+
+      <label className="mt-5 flex cursor-pointer items-center gap-2.5 text-sm font-medium">
+        <Checkbox
+          checked={salvarCadastro}
+          onCheckedChange={(v) => setSalvarCadastro(v === true)}
+        />
+        Salvar estes dados no cadastro do produto para as próximas notas
+      </label>
+    </>
   );
 }
